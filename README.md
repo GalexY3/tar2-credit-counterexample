@@ -1,5 +1,7 @@
 # Per-Agent Reward Redistribution Does Not Preserve the Optimal Team Policy
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24483745.svg)](https://doi.org/10.5281/zenodo.24483745)
+
 **Contents.** This archive contains a machine-checked counterexample to the policy-invariance guarantee of TAR² (Kapoor et al., arXiv:2502.04864v2), together with the code, preregistrations and results.
 
 **Author.** Alejandro Panera Pascual (Universidad de Salamanca), ORCID 0009-0008-5194-7399.
@@ -70,3 +72,7 @@ python au02_analyze.py results/au02_repro.json results/au02_analysis.json
 - Text, figures and data: CC BY 4.0.
 - Code written for this archive: MIT.
 - Quoted excerpts of third-party code remain the property of their authors and are included only for verification.
+
+## Cite
+
+Panera Pascual, A. (2026). *Per-Agent Reward Redistribution Does Not Preserve the Optimal Team Policy: A Machine-Checked Counterexample to the Policy-Invariance Guarantee of TAR²* (Version v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.24483745 (all versions: https://doi.org/10.5281/zenodo.24483744).
