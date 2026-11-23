@@ -1,0 +1,6 @@
+'AaNash.CA.c1_sufficiency' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AaNash.CA.c1_necessity' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AaNash.CA.tar2_tie_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AaNash.CA.tar2_min_gets_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
+'AaNash.CA.t1_AA_not_equilibrium' depends on axioms: [propext, Classical.choice, Quot.sound]
+exit 0

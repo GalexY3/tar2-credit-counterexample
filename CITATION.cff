@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "Per-Agent Reward Redistribution Does Not Preserve the Optimal Team Policy: A Machine-Checked Counterexample to the Policy-Invariance Guarantee of TAR2"
+authors:
+  - family-names: "Panera Pascual"
+    given-names: "Alejandro"
+    affiliation: "Universidad de Salamanca"
+    orcid: "https://orcid.org/0009-0008-5194-7399"
+date-released: 2026-11-24
+license: CC-BY-4.0

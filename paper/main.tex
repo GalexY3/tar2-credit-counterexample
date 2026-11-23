@@ -1,0 +1,173 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage[round]{natbib}
+\setcitestyle{aysep={},yysep={;}}
+\usepackage{hyperref}
+\usepackage{microtype}
+\emergencystretch=2em
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+\newcommand{\E}{\mathbb{E}}
+
+\title{Per-Agent Reward Redistribution Does Not Preserve the Optimal Team Policy:\\
+A Machine-Checked Counterexample to the Policy-Invariance Guarantee of TAR$^2$}
+\author{Alejandro Panera Pascual (GalexY)\\ \small Universidad de Salamanca, Spain\\ \small \url{https://github.com/GalexY3}}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Temporal-Agent Reward Redistribution (TAR$^2$; \citealp{kapoor2025tar2}) densifies a sparse episodic team reward by splitting it across time steps and agents with learned weights, and each agent is then trained on its own share. The method is presented as equivalent to a valid potential-based reward shaping that ``guarantees the optimal policy is preserved regardless of model accuracy''. We show that this guarantee does not hold. First, the history ``potential'' used in the proof is the running sum of the shaping rewards themselves; since those rewards depend on the final outcome and on a normalization over the whole episode, the potential is not a function of the history, and the argument would make every reward potential-based. Second, the identity used to conclude, $J_{\mathrm{PBRS}}=2J_{\mathrm{env}}$, holds for the sum over agents, whereas each agent is trained on its own share $\delta_i(\tau)R(\tau)$: the agents play a general-sum game. We prove that a multiplicative credit decomposition preserves every team-optimal profile as a best response, for every team reward, if and only if each agent's share does not depend on its own action. This is the factoredness condition of \citet{wolpert1999coin} in multiplicative form, and TAR$^2$ shares violate it. We give a two-agent, two-step cooperative game in which, under the exact TAR$^2$ normalization and for every $\varepsilon>0$, the team optimum is not an equilibrium of the game the agents are trained on; exact independent policy gradient on TAR$^2$ rewards ends at a suboptimal profile in 200/200 initializations, against 93\% optimal under the team reward. We also show that the expected per-agent gradient can point against the true gradient, and that the min-shift normalization gives zero weight to the lowest-scoring agent and step, and zero reward to every agent when scores tie, so return equivalence does not hold by construction. Finally, with the authors' public implementation of the learned credit model, loss and normalization, in a minimal task where one agent enables and another finishes, the learned credit gives the enabler a share of zero at the optimal trajectory in 20/20 seeds and the enabler stops enabling in 20/20 seeds (0/20 under the team reward). The counterexample, the characterization and the normalization properties have machine-checked proofs in Lean~4 with Mathlib.
+\end{abstract}
+
+\section{Introduction}
+
+In cooperative multi-agent reinforcement learning with a sparse episodic reward, credit must be assigned across time and across agents. A natural approach learns a model that redistributes the episodic return into dense per-step, per-agent rewards. In the single-agent case, return-equivalent redistributions preserve optimal policies \citep{arjonamedina2019rudder}, and so does temporal redistribution of a \emph{shared} team reward \citep{xiao2022arel}. TAR$^2$ \citep{kapoor2024tar2,kapoor2025tar2} extends redistribution to the agent level and states that optimality is preserved:
+
+\begin{quote}\small
+``We demonstrate that this method is equivalent to a valid Potential-Based Reward Shaping (PBRS), which guarantees the optimal policy is preserved regardless of model accuracy.'' \citep[abstract]{kapoor2025tar2}
+\end{quote}
+
+\noindent and, after noting that the learning signal may lead to a different convergent point,
+
+\begin{quote}\small
+``our PBRS guarantee ensures the resulting policy [\dots] remains in the set of optimal policies.'' \citep[Sec.~3.3]{kapoor2025tar2}
+\end{quote}
+
+The step that fails is the passage from one learner to several. Return equivalence summed over agents does not make each agent's objective equivalent to the team objective. This note isolates the gap, characterizes when per-agent credit does preserve the team optimum, gives a counterexample with the exact TAR$^2$ construction, and checks that the failure appears with the authors' own learned credit model.
+
+\paragraph{Contributions.}
+\begin{itemize}
+\item We show that the PBRS argument of \citet[Prop.~3.1]{kapoor2025tar2} uses a non-causal potential and concludes from the sum over agents (Section~\ref{sec:gap}).
+\item We prove that a multiplicative credit decomposition $S_i=\delta_iR$ preserves every team-optimal profile as a best response for every $R$ if and only if $\delta_i$ does not depend on agent $i$'s own action (Theorem~\ref{thm:c1}). This is factoredness \citep{wolpert1999coin}; we make it exact for multiplicative shares.
+\item We give a counterexample with the exact TAR$^2$ normalization, for every $\varepsilon>0$. The team optimum is not an equilibrium of the induced game, and policy gradient on TAR$^2$ rewards converges to suboptimal play (Section~\ref{sec:cex}). We also show that the expected per-agent gradient can be anti-aligned with the true gradient, and that ties and the min-shift normalization break return equivalence.
+\item With the authors' public implementation \citep{kapoor2024code}, the learned credit model gives zero credit to an enabling agent at the optimal trajectory, and the enabler abandons its role (Section~\ref{sec:repro}).
+\item We give Lean~4 proofs of Theorem~\ref{thm:c1}, of the normalization properties and of the counterexample (Section~\ref{sec:lean}).
+\end{itemize}
+
+\section{Setting and the TAR$^2$ construction}
+
+Consider a cooperative episodic task with $N$ agents, horizon $T$ and team reward $R(\tau)=R(s_T)$ paid at the end of the trajectory $\tau$. A reward model outputs unnormalized scores $c_{i,t}$ for agent $i$ at step $t$ (any function of the trajectory and of its final outcome). TAR$^2$ \citep[Eqs.~1--3]{kapoor2025tar2} sets $c^{\mathrm{agg}}_t=\sum_ic_{i,t}$ and
+\begin{align}
+w^{\mathrm{temp}}_t&=\frac{c^{\mathrm{agg}}_t-\min_{t'}c^{\mathrm{agg}}_{t'}}{\sum_{t''}\big(c^{\mathrm{agg}}_{t''}-\min_{t'}c^{\mathrm{agg}}_{t'}\big)+\varepsilon},\qquad
+w^{\mathrm{agent}}_{i,t}=\frac{c_{i,t}-\min_jc_{j,t}}{\sum_k\big(c_{k,t}-\min_jc_{j,t}\big)+\varepsilon},\label{eq:w}\\
+s_{i,t}&=w^{\mathrm{temp}}_t\,w^{\mathrm{agent}}_{i,t}\,R(s_T),\label{eq:s}
+\end{align}
+and trains agent $i$ on $s_{i,t}$ only \citep[Sec.~3.2]{kapoor2025tar2}. Agent $i$'s return is therefore
+\begin{equation}
+S_i(\tau)=\sum_ts_{i,t}=\delta_i(\tau)\,R(\tau),\qquad \delta_i(\tau)=\sum_tw^{\mathrm{temp}}_tw^{\mathrm{agent}}_{i,t}\in[0,1].\label{eq:share}
+\end{equation}
+The same normalization is implemented in the public code \citep[\texttt{MAPPO/agent.py}, branch \texttt{TAR\^{}2\_v2}]{kapoor2024code}.
+
+\section{Where the guarantee fails}\label{sec:gap}
+
+\paragraph{A non-causal potential.} The proof of \citet[Prop.~3.1]{kapoor2025tar2} defines $\Phi_i(\tau_t)=\sum_{k<t}s_{i,k}$ and notes that $\Phi_i(\tau_{t+1})-\Phi_i(\tau_t)=s_{i,t}$. With this definition every reward sequence would be ``potential-based''. The invariance results of \citet{ng1999policy} and \citet{devlin2011pbrs} require the potential to be a function of the current state (or history), so that the telescoped sum depends only on the start. Here $s_{i,k}$ depends on $R(s_T)$ and on the normalization over the whole episode, so $\Phi_i(\tau_t)$ is not a function of $\tau_t$, and the telescoped term $\Phi_i(\tau_T)=S_i(\tau)$ is not policy-invariant.
+
+\paragraph{The sum is no agent's objective.} The proof then computes $J_{\mathrm{PBRS}}(\pi)=J_{\mathrm{env}}(\pi)+\E_\pi[\sum_{t,i}s_{i,t}]=2J_{\mathrm{env}}(\pi)$. This is correct for the sum over agents, and it would justify a single learner trained on $\sum_is_{i,t}$. But agent $i$ is trained on $S_i=\delta_iR$ by \eqref{eq:share}, and the $\delta_i$ differ across agents and trajectories. The learners therefore play the general-sum game $(S_1,\dots,S_N)$, whose equilibria and learning fixed points need not be team-optimal.
+
+\section{When does per-agent credit preserve the team optimum?}
+
+Take a normal-form view: a joint action $a=(a_i,a_{-i})$ determines the trajectory, the team reward is $R(a)\ge0$, the shares are $\delta_i(a)\ge0$ and agent $i$'s payoff is $S_i(a)=\delta_i(a)R(a)$.
+
+\begin{theorem}[Exact preservation condition]\label{thm:c1}
+For an agent $i$, the following are equivalent:
+\begin{enumerate}
+\item[(a)] for every team reward $R\ge0$, every pure team-optimal profile is a (weak) best response for $i$ in the game $S$;
+\item[(b)] for every $a_{-i}$ and actions $a_i,a_i'$ with $\delta_i(a_i',a_{-i})>0$, we have $\delta_i(a_i,a_{-i})\ge\delta_i(a_i',a_{-i})$; equivalently, $\delta_i(\cdot,a_{-i})$ is constant in agent $i$'s own action (possibly identically zero).
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(b)$\Rightarrow$(a): with $a_{-i}$ fixed, $S_i(\cdot,a_{-i})=d_i(a_{-i})R(\cdot,a_{-i})$ with $d_i\ge0$, so the team optimum maximizes $S_i$ over $i$'s actions.
+(a)$\Rightarrow$(b): if $\delta_i(a_i,a_{-i})<\delta_i(a_i',a_{-i})$, set $R(a_i,a_{-i})=1$, $R(a_i',a_{-i})=r$ with $\delta_i(a_i,a_{-i})/\delta_i(a_i',a_{-i})<r<1$, and $R=0$ elsewhere. Then $(a_i,a_{-i})$ is the unique team optimum, but $S_i(a_i',a_{-i})>S_i(a_i,a_{-i})$.
+\end{proof}
+
+\begin{remark}
+Condition (b) is the factoredness of a private utility with respect to the world utility \citep{wolpert1999coin}, specialized to multiplicative shares. Difference rewards are designed to be factored; learned attention-based shares generally are not. TAR$^2$ shares depend on scores computed from the agent's own state-action pairs, so (b) is not guaranteed.
+\end{remark}
+
+\begin{proposition}[Expected gradient direction]\label{prop:grad}
+For product policies, the expected policy gradient of agent $i$ under $S_i$, $\E[\delta_iR\,\nabla\log\pi_i]$, is a positive multiple of $\E[R\,\nabla\log\pi_i]$ for every policy and every $R$ only if $\delta_i$ is constant on the support. Even when $\delta_i$ depends only on $a_{-i}$, $\E[S_i\mid a_i]=\sum_{a_{-i}}\pi_{-i}(a_{-i})\delta_i(a_{-i})R(a_i,a_{-i})$ reweights the other agents' actions and can reverse the ranking of $i$'s actions.
+\end{proposition}
+
+The proportionality $\hat g_{k,\mathrm{TAR^2}}(\tau)=\delta_k(\tau)\hat g_{k,\mathrm{Global}}(\tau)$ of \citet[Prop.~3.2]{kapoor2025tar2} holds sample by sample. Proposition~\ref{prop:grad} concerns its expectation, which is what learning follows.
+
+\begin{proposition}[Normalization]\label{prop:norm}
+Under \eqref{eq:w}, the lowest-scoring agent at each step, and the lowest-scoring step, receive weight $0$. With two agents the per-step agent weights are $0$ and $c/(c+\varepsilon)\approx1$. If the scores of all agents tie at a step, all agent weights at that step are $0$; if all steps tie, $s\equiv0$ for every $R$. Hence $\sum_{t,i}s_{i,t}=R(s_T)$ does not hold by construction.
+\end{proposition}
+
+\section{Counterexample}\label{sec:cex}
+
+Two agents act once at step~1; step~2 is a no-op with scores $(0,0)$. The team rewards are
+\[
+R(A,A)=1,\quad R(A,B)=0,\quad R(B,A)=0.2,\quad R(B,B)=0.3 .
+\]
+At step~1 the scores are $(c_1,c_2)=(0.1,0.9)$ at $(A,A)$ (credit to agent~2) and $(0.9,0.1)$ at the other profiles. By \eqref{eq:w}, for every $\varepsilon>0$ the shares are
+\[
+\delta_1(A,A)=0,\qquad \delta_1(B,\cdot)=\kappa_\varepsilon:=\frac{1}{1+\varepsilon}\cdot\frac{0.8}{0.8+\varepsilon}\in(0,1).
+\]
+Agent~1's TAR$^2$ payoff is therefore $0$ at the team optimum $(A,A)$ and $0.2\,\kappa_\varepsilon>0$ at $(B,A)$. The team optimum is not an equilibrium of the induced game: $B$ is strictly dominant for agent~1. A credit model that attributes the optimal outcome to the other agent is admissible under the guarantee, which is stated ``regardless of model accuracy''.
+
+\paragraph{Learning.} Exact independent softmax policy gradient (200 random initializations; 3000 steps) on the TAR$^2$ payoffs ends at a suboptimal profile in 200/200 runs (mean team value $0.21$). On the team reward, 93\% of runs reach $(A,A)$ (mean $0.95$). At $\pi_1=(0.5,0.5)$ and $\pi_2=(0.95,0.05)$, agent~1's expected gradient is $(-0.051,0.051)$ under TAR$^2$ and $(0.186,-0.186)$ under the team reward. The inner product is negative, as allowed by Proposition~\ref{prop:grad}.
+
+\paragraph{A natural score model.} In an enabler--finisher task, agent~1 can \emph{open} (enabling the team reward $1$ if agent~2 then \emph{shoots}) or \emph{forage} (team reward $0.4$ alone). We score each action by its counterfactual marginal contribution plus a small bias $\eta$ towards later (proximate) steps. In 6 of 8 settings of $\eta\in\{0,0.01,0.05,0.2\}$ and score noise $\in\{0,0.02\}$, the enabler abandons enabling in at least 80\% of runs (100\% for $\eta\in\{0.01,0.05\}$). Under the team reward, 97\% of runs reach the optimum. Without the proximate bias and with noisy scores, the enabler keeps on average about half of the credit and usually keeps enabling. The failure needs credit that favours the proximate cause, which is the natural reading of a model conditioned on the final outcome.
+
+\section{Reproduction with the authors' implementation}\label{sec:repro}
+
+\sloppy We ran the authors' public reward model (class \texttt{TARR} in \texttt{TARR\_v2}, with the default hyperparameters of \texttt{train\_agent.py}), their training loss (squared error of the summed predicted rewards plus the dynamics loss) and a verbatim copy of their normalization \citep[commit 883173c0]{kapoor2024code}. We replaced MAPPO by tabular REINFORCE, since the guarantee under audit concerns the reward, not the optimizer. The task is the enabler--finisher task above, with $T\in\{2,4\}$, 20 seeds per condition and 300 iterations of 64 episodes. The design and the analysis were preregistered and hashed before the run.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccc}\toprule
+& \multicolumn{2}{c}{$T=2$} & \multicolumn{2}{c}{$T=4$}\\
+& TAR$^2$ & team reward & TAR$^2$ & team reward\\\midrule
+enabler abandons ($P(\text{open})<0.5$) & 20/20 & 0/20 & 13/20 & 0/20\\
+mean final team value & 0.41 & 0.99 & 0.62 & 0.99\\
+learned enabler share at the optimal trajectory & 0.000 in 20/20 & -- & mixed & --\\\bottomrule
+\end{tabular}
+\caption{Authors' credit model and normalization in the enabler--finisher task. The value difference at $T=2$ is significant (one-sided Mann--Whitney $p=3.4\times10^{-8}$).}
+\end{table}
+
+Already at iteration 25, while the enabler still opens often, its learned share at the optimal trajectory is $\le0.05$ in 80\% of the $T=2$ seeds. The zero credit precedes the abandonment, not the other way round. The learned model attributes the outcome to the finishing step, and the min-shift normalization turns this preference into all-or-nothing credit.
+
+\section{Machine-checked statements}\label{sec:lean}
+
+The following are proved in Lean~4 with Mathlib \citep{demoura2021lean4,mathlib2020}, using only the standard axioms and no \texttt{sorry}:
+\begin{itemize}
+\item both directions of Theorem~\ref{thm:c1};
+\item the zero weight of the lowest score and of tied scores (Proposition~\ref{prop:norm});
+\item the counterexample of Section~\ref{sec:cex} with the two-agent, two-step form of \eqref{eq:w} for every $\varepsilon>0$: \texttt{t1\_AA\_not\_equilibrium}.
+\end{itemize}
+
+\section{Discussion}
+
+\paragraph{What remains true.} Return equivalence of the \emph{summed} redistributed reward preserves the optimum for a single learner trained on that sum, and temporal redistribution of a shared reward is unaffected \citep{xiao2022arel,arjonamedina2019rudder}. Per-agent credit preserves the team optimum as an equilibrium exactly when each agent's share is insensitive to its own action (Theorem~\ref{thm:c1}). Even then, learning dynamics are reweighted (Proposition~\ref{prop:grad}), and preservation of the optimal \emph{set} is not preservation of the \emph{selected} outcome. Factored alternatives such as difference rewards \citep{wolpert1999coin} keep the alignment.
+
+\paragraph{Invisible work.} The failure has a familiar organizational form. A credit model that rewards the visible, proximate contribution and not the enabling one makes enabling a losing strategy for the enabler. This is the problem of invisible work in cooperative settings \citep{star1999layers}. Theorem~\ref{thm:c1} states the exact condition under which a credit assignment avoids it.
+
+\paragraph{Scope.} We did not run the original benchmarks (SMACLite, Google Research Football), and TAR$^2$ may perform well there empirically. Our claim concerns the stated guarantee. It does not hold as stated, and the failure it rules out does occur with the authors' learned credit model in a minimal cooperative task.
+
+\paragraph{Acknowledgements and contributions.} TAR$^2$, its construction and its empirical results are entirely the work of \citet{kapoor2024tar2,kapoor2025tar2}. This note only examines the scope of the optimal-policy-preservation guarantee. Alejandro Panera Pascual conceived and directed the investigation; AI tools were used under his direction for derivations, computational checks, the Lean formalization and manuscript preparation. Code, preregistrations, results and Lean proofs are included in the accompanying archive.
+
+\begin{thebibliography}{99}
+\bibitem[Arjona-Medina et~al.(2019)]{arjonamedina2019rudder} Arjona-Medina, Jose A., Michael Gillhofer, Michael Widrich, Thomas Unterthiner, Johannes Brandstetter, and Sepp Hochreiter. 2019. ``RUDDER: Return Decomposition for Delayed Rewards.'' In \emph{Advances in Neural Information Processing Systems 32}. arXiv:1806.07857.
+\bibitem[de~Moura and Ullrich(2021)]{demoura2021lean4} de~Moura, Leonardo, and Sebastian Ullrich. 2021. ``The Lean 4 Theorem Prover and Programming Language.'' In \emph{Automated Deduction -- CADE 28}, 625--635. Springer.
+\bibitem[Devlin and Kudenko(2011)]{devlin2011pbrs} Devlin, Sam, and Daniel Kudenko. 2011. ``Theoretical Considerations of Potential-Based Reward Shaping for Multi-Agent Systems.'' In \emph{Proceedings of the 10th International Conference on Autonomous Agents and Multiagent Systems (AAMAS)}, 225--232.
+\bibitem[Kapoor et~al.(2024a)]{kapoor2024tar2} Kapoor, Aditya, Sushant Swamy, Kale-ab Tessera, Mayank Baranwal, Mingfei Sun, Harshad Khadilkar, and Stefano V. Albrecht. 2024. ``Agent-Temporal Credit Assignment for Optimal Policy Preservation in Sparse Multi-Agent Reinforcement Learning.'' CoCoMARL Workshop, Reinforcement Learning Conference. arXiv:2412.14779.
+\bibitem[Kapoor(2024b)]{kapoor2024code} Kapoor, Aditya. 2024. \emph{MARL\_Agent\_Temporal\_Credit\_Assignment} (source code), commit 883173c04df31c06530d92aace647a5d5e11f7a9. \url{https://github.com/AdityaKapoor74/MARL_Agent_Temporal_Credit_Assignment}.
+\bibitem[Kapoor et~al.(2025)]{kapoor2025tar2} Kapoor, Aditya, Kale-ab Tessera, Harshad Khadilkar, Mayank Baranwal, Jan Peters, Stefano Albrecht, and Mingfei Sun. 2025. ``Redistributing Rewards Across Time and Agents for Multi-Agent Reinforcement Learning.'' arXiv:2502.04864v2.
+\bibitem[mathlib Community(2020)]{mathlib2020} The mathlib Community. 2020. ``The Lean Mathematical Library.'' In \emph{Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs (CPP)}, 367--381.
+\bibitem[Ng et~al.(1999)]{ng1999policy} Ng, Andrew Y., Daishi Harada, and Stuart Russell. 1999. ``Policy Invariance under Reward Transformations: Theory and Application to Reward Shaping.'' In \emph{Proceedings of the 16th International Conference on Machine Learning (ICML)}, 278--287.
+\bibitem[Star and Strauss(1999)]{star1999layers} Star, Susan Leigh, and Anselm Strauss. 1999. ``Layers of Silence, Arenas of Voice: The Ecology of Visible and Invisible Work.'' \emph{Computer Supported Cooperative Work} 8(1--2):9--30. doi:10.1023/A:1008651105359.
+\bibitem[Wolpert and Tumer(1999)]{wolpert1999coin} Wolpert, David H., and Kagan Tumer. 1999. ``An Introduction to Collective Intelligence.'' Technical report, NASA Ames Research Center. arXiv:cs/9908014.
+\bibitem[Xiao et~al.(2022)]{xiao2022arel} Xiao, Baicen, Bhaskar Ramasubramanian, and Radha Poovendran. 2022. ``Agent-Temporal Attention for Reward Redistribution in Episodic Multi-Agent Reinforcement Learning.'' In \emph{Proceedings of the 21st International Conference on Autonomous Agents and Multiagent Systems (AAMAS)}. arXiv:2201.04612.
+\end{thebibliography}
+\end{document}

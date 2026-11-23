@@ -1,0 +1,12 @@
+T1 {'AA_is_NE_in_TAR2_game': False, 'frac_suboptimal_tar2': 1.0, 'frac_optimal_global': 0.93, 'mean_tar2': 0.20649924629522842, 'mean_global': 0.9506642025202683, 'verdict': 'CONFIRMADA'}
+T2 {'eta': 0.0, 'noise': 0.0, 'frac_abandon_enabling': 1.0, 'mean_tar2': 0.3999241297082053, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.0}
+T2 {'eta': 0.0, 'noise': 0.02, 'frac_abandon_enabling': 0.2, 'mean_tar2': 0.8786739793821989, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.479999549101975}
+T2 {'eta': 0.01, 'noise': 0.0, 'frac_abandon_enabling': 1.0, 'mean_tar2': 0.4000258860522708, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.0}
+T2 {'eta': 0.01, 'noise': 0.02, 'frac_abandon_enabling': 1.0, 'mean_tar2': 0.4002773241117955, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.25999912588837487}
+T2 {'eta': 0.05, 'noise': 0.0, 'frac_abandon_enabling': 1.0, 'mean_tar2': 0.4000258860656405, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.0}
+T2 {'eta': 0.05, 'noise': 0.02, 'frac_abandon_enabling': 1.0, 'mean_tar2': 0.400032588756999, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.01999997990138018}
+T2 {'eta': 0.2, 'noise': 0.0, 'frac_abandon_enabling': 0.68, 'mean_tar2': 0.49202169185597483, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.0}
+T2 {'eta': 0.2, 'noise': 0.02, 'frac_abandon_enabling': 1.0, 'mean_tar2': 0.4000887684451506, 'frac_optimal_global': 0.97, 'share_enabler_at_opt': 0.0}
+T3 {'grad_tar2': [-0.05124999884687502, 0.05124999884687502], 'grad_global': [0.18624999999999997, -0.18625000000000003], 'inner': -0.019090624570460946, 'verdict': 'CONFIRMADA'}
+T4 {'max_share_with_ties': 0.0, 'verdict': 'CONFIRMADA'}
+T5 {'independent_ok': 1000, 'n_independent': 1000, 'dependent_broken': 1000, 'n_dependent': 1000, 'verdict': 'CONFIRMADA'}

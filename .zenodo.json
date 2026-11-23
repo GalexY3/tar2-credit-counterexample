@@ -1,0 +1,16 @@
+{
+  "title": "Per-Agent Reward Redistribution Does Not Preserve the Optimal Team Policy: A Machine-Checked Counterexample to the Policy-Invariance Guarantee of TAR²",
+  "upload_type": "publication",
+  "publication_type": "preprint",
+  "creators": [
+    {"name": "Panera Pascual, Alejandro", "affiliation": "Universidad de Salamanca", "orcid": "0009-0008-5194-7399"}
+  ],
+  "description": "TAR² (Kapoor et al., arXiv:2502.04864v2) splits a sparse episodic team reward across time steps and agents with learned weights and trains each agent on its own share, and states that this is a valid potential-based reward shaping that guarantees the optimal policy is preserved regardless of model accuracy. We show that the guarantee does not hold: the history potential used in the proof is not a function of the history, and the concluding identity holds only for the sum over agents, whereas each agent optimizes its own share. A multiplicative credit decomposition preserves every team-optimal profile as a best response for every team reward if and only if each agent's share does not depend on its own action (factoredness in multiplicative form). We give a two-agent cooperative game in which, under the exact TAR² normalization and for every epsilon > 0, the team optimum is not an equilibrium of the induced game, and policy gradient on TAR² rewards ends at a suboptimal profile in 200/200 initializations. With the authors' public credit model in a minimal enabler-finisher task, the learned share of the enabler at the optimal trajectory is zero in 20/20 seeds and the enabler stops enabling in 20/20 seeds (0/20 under the team reward). Proofs in Lean 4 with Mathlib. TAR², its construction and its empirical results are the work of Kapoor, Tessera, Khadilkar, Baranwal, Peters, Albrecht and Sun.",
+  "keywords": ["multi-agent reinforcement learning", "credit assignment", "reward redistribution", "potential-based reward shaping", "factoredness", "cooperation", "invisible work", "Lean 4", "formal verification"],
+  "license": "CC-BY-4.0",
+  "related_identifiers": [
+    {"identifier": "arXiv:2502.04864", "relation": "references", "scheme": "arxiv"},
+    {"identifier": "arXiv:2412.14779", "relation": "references", "scheme": "arxiv"},
+    {"identifier": "https://github.com/AdityaKapoor74/MARL_Agent_Temporal_Credit_Assignment", "relation": "references", "scheme": "url"}
+  ]
+}
